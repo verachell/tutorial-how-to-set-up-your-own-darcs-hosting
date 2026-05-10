@@ -10,7 +10,7 @@ The solution: Set up your own private host for darcs. It's affordable (with a ti
 ## What you'll need
 A tiny VPS server - you won't need a ton of RAM or space, just the lowest specced VPS you can find, ideally well under $5 per month.
 
-If you prefer to test out the tutorial first before committing to an ongoing hosting subscription somewhere, consider doing your test at an hourly computing provider with low top-up minimums, e.g. RamNode, DigitalOcean, or Clouding.io. You can try it out for a day or 2 which should cost much less than $1, then destroy (not suspend or pause, but destroy) the instance to prevent you from getting any further charges. 
+If you prefer to test out the tutorial first before committing to an ongoing hosting subscription somewhere, consider doing your test at an hourly computing provider with low top-up minimums, e.g. RamNode, DigitalOcean, or Clouding.io. You can try it out for a day or 2 which should cost much less than $1 total, then destroy (not suspend or pause, but destroy) the instance to prevent you from getting any further charges. 
 
 This tutorial was developed on RamNode with a Linux Debian VPS, but the principles would work on other hourly computing provider or any other VPS host.
 
