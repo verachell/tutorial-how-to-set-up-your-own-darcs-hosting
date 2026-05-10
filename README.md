@@ -5,7 +5,7 @@ Darcs can be thought of as a git alternative - it handles version control. It's 
 
 The problem : It's almost impossible to find pre-made hosting services for darcs aside from the flagship darcs hosting instance at `hub.darcs.net`. 
 
-The solution: Set up your own private host for darcs. It's affordable (with a tiny VPS) and not too difficult at all. Here is the step by step tutorial of how to do it
+The solution: Set up your own private host for darcs. It's affordable (with a tiny VPS) and not too difficult at all. In fact, all you need is a server you can SSH into, and install `darcs` on it, and it will "just work". Here is the step by step tutorial of how to do it
 
 ## What you'll need
 A tiny VPS server - you won't need a ton of RAM or space, just the lowest specced VPS you can find, ideally well under $5 per month.
@@ -170,13 +170,13 @@ Edit the ssh config file:
 ```
 sudo nano /etc/ssh/sshd_config
 ```
-uncomment the PasswordAuthentication line and set it to no
+uncomment the `PasswordAuthentication` line and set it to no
 
 Look for the following and change as follows:
 ```
 PermitRootLogin no 
 ```
-	Make sure the following line is there - you may need to add it yourself
+Make sure the following line is there - you may need to add it yourself
 ```
 AllowUsers newuser
 ```
@@ -185,5 +185,19 @@ Be sure to type in your new username correctly or you could be locked out! Then 
 sudo systemctl restart ssh
 ```
 and now log in on a new terminal as new user with SSH keys as before. This should work. Try a new connection and try to log in as root, it should be denied.
+## Installing darcs on the VPS and creating a darcs user
+```
+sudo apt install darcs
+```
+The instructions here come from https://darcs.net/SSH  First, create a new account for the user that will own the repos. In this case I will NOT make it my normal non-privileged user because I don't want a user that can sudo, all they need to do is use darcs.
+```
+sudo adduser newuser2
+```
+Do NOT add this user to sudo group! Log into webmin as root. Go to tools -> file manager. Navigate to `/home/newuser2` Then go to file-> create new directory, and create a directory called `bin` and also (still in the `newuser2` directory) make another new directory for your first repo directory e.g. `myfirstrepo` - both will show as being owned by newuser2
 
+Instructions from the darcs link above say to copy the `darcs-wrapper.pl` script below into the `bin` directory. IMPORTANT Please note that the perl script below does not prevent users from uploading and running arbitrary programs with the darcs account privileges.
+
+then handle addition of public key. Making an ed25519 key on local machine for darcs  Basically, do what you did to generate key for the regular unpriv user newuser, but do it for newuser2 
+
+ssh-keygen -t ed25519 -f ~/.ssh/tempPOCkey -C "key for hosting as darcs user"
 
