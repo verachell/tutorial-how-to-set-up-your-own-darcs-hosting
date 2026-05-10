@@ -149,7 +149,6 @@ Change permissions of the authorized_keys file on the remote server so that no-o
 ```
 chmod 0600 authorized_keys
 ```
-
 IMPORTANT: If you didn't supply an SSH key when you signed up for your service, you need to set up the keys for root as well. Simply repeat the steps above that you did, but as the server root user. So the making of keys on your local machine will be the same (just pick a different filename for the keys). At the server end, I recommend SSH-ing into your server as root from the command line `ssh root@your.server.ip.address` so that you'll be in the root home directory when you make the .ssh home directory.
 
 At this point, both root and newuser should have SSH public keys copied in and stored on the server. The next step is to check that newuser can SSH in.
@@ -202,3 +201,82 @@ then handle addition of public key. Making an ed25519 key on local machine for d
 ssh-keygen -t ed25519 -f ~/.ssh/newuser2darcs_ed25519 -C "key for hosting as darcs user"
 
 ```
+
+##### darcs-wrapper.pl
+original code is at 
+```
+!/usr/bin/perl
+
+sub fail {
+	my ($msg) = @_;
+	print STDERR "account restricted to darcs: ", $msg, "\n";
+	exit 1;
+}
+
+# Since this script is called as a forced command, need to get the
+# original command given by the client.
+
+($command = $ENV{SSH_ORIGINAL_COMMAND})
+	|| fail "environment variable SSH_ORIGINAL_COMMAND not set";
+
+open LOG, '>>', '/home/darcs/wrapper-log';
+$now = localtime;
+print LOG $now, ": ", $command, "\n";
+close LOG;
+
+# Split the command string to make an argument list, and remove the first
+# element (the command name; we'll supply our own);
+
+@orig_argv = split /[ \t]+/, $command;
+
+while (1) { 
+	$orig_command = shift @orig_argv;
+
+	if ($orig_command eq "cd") {
+		$dir = shift @orig_argv;
+		fail "bad cd sequence" 
+			unless (shift @orig_argv) eq '&&';
+		fail "illegal repo $dir"
+			unless $dir =~ /^'(repos\/[a-zA-Z0-9\/]+)'$/;
+		chdir $1;
+	}
+	elsif ($orig_command eq "darcs") {
+		foreach my $arg (@orig_argv) {
+			$arg =~ s/^(['"])(repos\/[a-zA-Z0-9\/]+)\1$/$2/;
+		}
+		last;
+	}
+# NB: there's no need to whitelist these if you have darcs 2 on both
+# the client and the server side
+#      elsif ($orig_command eq "scp") {
+#          $ok = 0;
+#          foreach $arg (@orig_argv) {
+#              if ($arg eq '-t' || $arg eq '-f') {
+#                  $ok = 1;
+#                  last;
+#              }
+#          }
+# 
+#          fail "bad scp command"
+#              unless $ok;
+# 
+#          last;
+#      }
+#      elsif ($orig_command =~ "sftp-server") {
+#      $orig_command = '/usr/libexec/openssh/sftp-server';
+#          last;
+#      }
+	else {
+		fail "$orig_command not allowed"
+	}
+}
+
+# Wipe the environment as a security precaution.  This might conceivably
+# break something, but if it does you can filter the environment more
+# selectively here.
+
+%ENV = ();
+
+exec $orig_command, @orig_argv;
+```
+
