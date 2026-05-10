@@ -184,7 +184,7 @@ Be sure to type in your new username correctly or you could be locked out! Then 
 sudo systemctl restart ssh
 ```
 and now log in on a new terminal as new user with SSH keys as before. This should work. Try a new connection and try to log in as root, it should be denied.
-## Installing darcs on the VPS and creating a darcs user
+## Step 7. Installing darcs on the VPS and creating a darcs user
 ```
 sudo apt install darcs
 ```
@@ -194,16 +194,83 @@ sudo adduser newuser2
 ```
 Do NOT add this user to sudo group! Log into webmin as root. Go to tools -> file manager. Navigate to `/home/newuser2` Then go to file-> create new directory, and create a directory called `bin` and also (still in the `newuser2` directory) make another new directory for your first repo directory e.g. `myfirstrepo` - both will show as being owned by newuser2
 
-Instructions from the darcs link above say to copy the `darcs-wrapper.pl` script below into the `bin` directory. IMPORTANT Please note that the perl script below does not prevent users from uploading and running arbitrary programs with the darcs account privileges.
+Instructions from the darcs link above say to copy the `darcs-wrapper.pl` script at the end of this tutorial into the `bin` directory. IMPORTANT Please note that the perl script below does not prevent users from uploading and running arbitrary programs with the darcs account privileges.
 
-then handle addition of public key. Making an ed25519 key on local machine for darcs  Basically, do what you did to generate key for the regular unpriv user newuser, but do it for newuser2 
+then handle addition of public key. Making an ed25519 key on local machine for darcs  Basically, do what you did to generate key for the regular unpriv user newuser, but do it for `newuser2`
 ```
-ssh-keygen -t ed25519 -f ~/.ssh/newuser2darcs_ed25519 -C "key for hosting as darcs user"
+ssh-keygen -t ed25519 -f ~/.ssh/keyfornewuser2 -C "key for hosting as darcs user"
 
 ```
+On Webmin as root, navigate to `/home/newuser2`  then add in home dir a new `.ssh` dir. Go into .ssh dir, then create new file `authorized_keys` Then paste in the public key from local machine as before. Then update perms (in webmin, this would be under edit -> change permissions) to owner read and write, no-one else anything i.e. chmod 0600
+
+Then paste in the public key from local machine into `authorized_keys` in newuser2, and make sure the .ssh dir has `drwx------`, use `chmod 700 .ssh` if needed.
+
+Need to change settings of `/etc/ssh/sshd_config` to allow newuser2 to use ssh. So, using root on Webmin, edit this file to add it. There will be a line:
+```
+AllowUsers newuser
+```
+amend it to say
+```
+AllowUsers newuser newuser2
+```
+restart ssh:
+```
+systemctl restart ssh
+```
+Now check that you can ssh in as newuser2 with keys
+```
+ssh -p 65000 ~/.ssh/keyfornewuser2 newuser2@your.server.ip.address
+```
+## Step 8. Configure setup for darcs usage
+### at server end
+In the server ssh terminal as the darcs user `newuser2`, you should be in home directory, if not then navigate to `/home/newuser2`
+Then cd your first repo directory e.g. `cd myfirstrepo`
+
+Then do
+```
+darcs init
+```
+The above command is necessary before pushing anything from your local to this directory. 
+
+So in future, each time you create a directory for a repo on the remote server, you should do darcs init inside the repo directory. Or you can do all in 1 step from the home directory, to create new repo dir and initialize it e.g. `darcs init mynextrepo`
+
+### locally
+edit `~/.ssh/config` on your local machine. Create this file if it does not already exist. Put an entry like the one below but for the new server. 
+
+Make sure Host IP, port, User and Identity File are correct. Everything else should be OK, assuming you are using ed25519 keys throughout
+```
+Host my.server.ip.address
+  User newuser2
+  ControlMaster no
+  ForwardAgent no
+  ForwardX11 no
+  Ciphers +aes256-cbc
+  MACs +hmac-sha1
+  PubkeyAcceptedKeyTypes ssh-ed25519
+  HostKeyAlgorithms ssh-ed25519
+  IdentityFile ~/.ssh/keyfornewuser2
+```
+Now, you should be able to push your local darcs stuff to your remote host. You should also be able to use pull, clone, etc from your local machine to get stuff from server to local. But in the common use case after beginning, your remote host will have an empty repo and you want to push to it.
+
+So in your local machine, go into any of your darcs repos:
+```
+darcs show files
+```
+this will tell you what it is tracking. You can add or make changes at this point. Then try pushing to remote:
+```
+darcs push --dry-run newuser2@your.server.ip.address:myfirstrepo
+```
+This should work. If it works, do it for real:
+```
+darcs push -a newuser2@your.server.ip.address:myfirstrepo
+```
+On server, check that the files were pushed in. It should "just work".
+
+## [optional] Install any host based intrusion detection system (HIDS)
+Although outside the scope of this tutorial, this is when you would install and configure whatever host based intrusion detection system you want, e.g. tripwire, fcheck, AIDE
 
 ##### darcs-wrapper.pl
-original code is at 
+original script is at https://darcs.net/SSH . This file should go into `/home/newuser2/bin` on remote host
 ```
 !/usr/bin/perl
 
