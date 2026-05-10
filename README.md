@@ -198,6 +198,7 @@ Do NOT add this user to sudo group! Log into webmin as root. Go to tools -> file
 Instructions from the darcs link above say to copy the `darcs-wrapper.pl` script below into the `bin` directory. IMPORTANT Please note that the perl script below does not prevent users from uploading and running arbitrary programs with the darcs account privileges.
 
 then handle addition of public key. Making an ed25519 key on local machine for darcs  Basically, do what you did to generate key for the regular unpriv user newuser, but do it for newuser2 
+```
+ssh-keygen -t ed25519 -f ~/.ssh/newuser2darcs_ed25519 -C "key for hosting as darcs user"
 
-ssh-keygen -t ed25519 -f ~/.ssh/tempPOCkey -C "key for hosting as darcs user"
-
+```
