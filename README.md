@@ -66,8 +66,9 @@ and then (do not want to install usermin, just webmin)
 apt-get install webmin --install-recommends
 ```
 
-Then check it's working - go to https://your.server.ip.address:10000
-Click to get past your browser's security warning, due to the fact of Webmin using a self-signed SSL certificate. The self-signed certificate is necessary, if you want a regular certificate you'd need to install one separately later on, which would require adding a domain name to your host. That's outside the scope of this tutorial, although if you'd like to do it you can follow the instructions here https://github.com/verachell/Tutorial-Easy-customizable-Apache-server-setup-without-email/blob/main/Connect-first-domain-and-set-up-ssl.md 
+Then check it's working - go to `https://your.server.ip.address:10000` Click to get past your browser's security warning, due to the fact of Webmin using a self-signed SSL certificate. 
+
+The self-signed certificate is necessary at this point, if you want a regular certificate you'd need to install one separately later on, which would require adding a domain name to your host. That's outside the scope of this tutorial, although if you'd like to do it you can follow the instructions here https://github.com/verachell/Tutorial-Easy-customizable-Apache-server-setup-without-email/blob/main/Connect-first-domain-and-set-up-ssl.md 
 
 Log into webmin as root and using the root password you specified when you set up your VPS server. Go to notifications and install any software updates. If the server requires reboot from within webmin, do it - it will take several minutes but it will work.
 
@@ -100,4 +101,89 @@ Then scroll down a bit to "Available Webmin Modules" and pick what your user sho
 
 Now click create.
 
-Then log out of Webmin and check you can log in again to Webmin https://your.server.ip.address:10000 but as your new user with the new Webmin password.
+Then log out of Webmin and check you can log in again to Webmin `https://your.server.ip.address:10000` but as your new user with the new Webmin password.
+
+## Step 5. Change the SSH port away from the default of 22
+
+This tactic will stop a lot of brute force attacks
+```
+nano /etc/ssh/sshd_config
+```
+in the file, uncomment the port line and change the port from 22 to some other port not in use. So, avoid ports 53, 80, 443, 10000 and 22. For example, change to port 65000
+
+in the same file, add a line saying
+```
+Protocol 2
+```
+then after saving the file, open that port
+```
+ufw allow 65000
+```
+Then you'll need to restart ssh:
+```
+systemctl restart ssh
+```
+## Step 6. Set up keys for new user (and root if you didn't sign up with one), disallow root ssh
+Now, keeping your existing terminal open, go to a new terminal and open a fresh connection to the server under your non-privileged user, specifying the new port number like this:
+```
+ssh -p 65000 newuser@your.server.ip.address
+```
+Check that this works and allows you to log in as the new user with the password. Now on local Linux machine, set up SSH keys for new user:
+```
+ssh-keygen -t ed25519 -f ~/.ssh/newuser_ed25519 -C "non-priv user key for temp server"
+```
+
+As non-priv user in remote machine (should be there in SSH already in a terminal window),do the following:
+```
+mkdir .ssh
+```
+change perms of .ssh to 0700
+```
+chmod 0700 .ssh
+cd .ssh
+nano authorized_keys 
+```
+Then copy and paste only the public key from your local machine (its file extension ends with .pub) into the remote server's `authorized_keys` file that you just made.
+
+Change permissions of the authorized_keys file on the remote server so that no-one besides you can read them:
+```
+chmod 0600 authorized_keys
+```
+
+IMPORTANT: If you didn't supply an SSH key when you signed up for your service, you need to set up the keys for root as well. Simply repeat the steps above that you did, but as the server root user. So the making of keys on your local machine will be the same (just pick a different filename for the keys). At the server end, I recommend SSH-ing into your server as root from the command line `ssh root@your.server.ip.address` so that you'll be in the root home directory when you make the .ssh home directory.
+
+At this point, both root and newuser should have SSH public keys copied in and stored on the server. The next step is to check that newuser can SSH in.
+
+Without closing any existing terminals, open yet another terminal on your local machine and connect to the server via ssh as follows. This method specifies exactly which key file you're using, which is important, it will be something like `~/.ssh/newuser_ed25519` or wahtever you called it. 
+
+If you don't specify the key file (and if you have more than 1 key file on your local machine) you might wind up with an authentication error and a refusal to connect. This is because your local machine might default to using the wrong key when there is a choice of multiple. We'll also have to specify the new port every time too, otherwise it will default to port 22. Here is how to specify everything on your local machine:
+```
+ssh -i ~/.ssh/newuser_ed25519 -p 65000 newuser@your.server.ip.address
+```
+Now, if everything has been done correctly, it will ask for a passphrase (not a password!) and this is where you type in the one from when you generated the keys.
+
+At this point it should let you log in. If it doesn't, go back through these steps. Make sure you're able to log in as the non-privileged user through your SSH keys before moving on to the next step.
+
+Now disable password logins for SSH access and only allow authentication keys, disable root login. Only do this step after you're able to log in through your SSH keys as your non-privileged user.
+
+Edit the ssh config file:
+```
+sudo nano /etc/ssh/sshd_config
+```
+uncomment the PasswordAuthentication line and set it to no
+
+Look for the following and change as follows:
+```
+PermitRootLogin no 
+```
+	Make sure the following line is there - you may need to add it yourself
+```
+AllowUsers newuser
+```
+Be sure to type in your new username correctly or you could be locked out! Then save and exit. Then restart ssh
+```
+sudo systemctl restart ssh
+```
+and now log in on a new terminal as new user with SSH keys as before. This should work. Try a new connection and try to log in as root, it should be denied.
+
+
